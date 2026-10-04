@@ -26,6 +26,35 @@ machine's real configuration from this repository's **`comin/deploy`** branch an
 apply it. The desktop software is never baked into the bootstrap image, so new
 bootstrap images stay small and application changes ship as ordinary commits.
 
+### The lifecycle
+
+```mermaid
+flowchart LR
+  A[Flash minimal<br/>bootstrap image] --> B[Device boots<br/>Ethernet DHCP<br/>Comin enabled]
+  B --> C[Comin polls<br/>comin/deploy]
+  C --> D[Evaluate bigscreen-&lt;target&gt;-deploy<br/>build + switch]
+  E[Push to comin/deploy<br/>e.g. promote a target to full] --> C
+  F[Publish tag v1.2.3] --> G[ARM64 workflow<br/>builds SD image]
+  G --> H[GitHub release<br/>bootstrap image]
+  H --> A
+```
+
+Three things can move a machine or produce an artifact:
+
+| Ref | Role | Effect on a device |
+|-----|------|--------------------|
+| `main` | Integration branch: review and land changes here | None by itself — nothing polls `main` |
+| `comin/deploy` | The branch devices follow | Every commit is pulled, evaluated and deployed |
+| `v*` tags | Point-in-time bootstrap images | None — a tag builds a **new bootstrap image**, it does not change `comin/deploy` |
+
+So a tagged release and a deployment are deliberately separate: **provisioning
+a new device** uses a tag's bootstrap image, while **updating a running device**
+is an ordinary commit pushed to `comin/deploy`.
+
+> **Planned future step (not implemented):** automating a tag so it also updates
+> `comin/deploy` (for example pinning a version constant there) would make a tag
+> directly trigger a deployment. Today that link is manual.
+
 ### Outputs
 
 | Output | Purpose |
@@ -57,10 +86,13 @@ zstd -d result/sd-image/*.img.zst -o bigscreen-rpi4-bootstrap.img
 ### Publish a release by tag
 
 Push a semantic-version tag such as `v1.2.3`. The
-[release workflow](./.github/workflows/release-rpi4-bootstrap.yml) builds the Pi
-bootstrap image on an ARM64 runner and attaches
-`bigscreen-rpi4-bootstrap-v1.2.3.img.zst` plus a `.sha256` to a GitHub release
-for that tag. Tags build **images** only — see the lifecycle section below.
+[release workflow](./.github/workflows/release-rpi4-bootstrap.yml) builds both
+bootstrap images in parallel and attaches them to a GitHub release for that tag:
+
+- `bigscreen-rpi4-bootstrap-v1.2.3.img.zst` (built on an ARM64 runner) plus `.sha256`;
+- `bigscreen-vbox-bootstrap-v1.2.3.ova` (built on an x86_64 runner) plus `.sha256`.
+
+Tags build **images** only — see the lifecycle section below.
 
 ### First boot and recovery
 

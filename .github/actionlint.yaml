@@ -1,6 +1,7 @@
 # actionlint's built-in runner label list lags GitHub's images. Declare the
-# ARM64 label the release workflow targets so `actionlint` passes cleanly; the
-# label is GitHub's official "Ubuntu 26.04 Arm64" hosted runner.
+# labels the release workflow targets so `actionlint` passes cleanly; these are
+# GitHub's official "Ubuntu 26.04" and "Ubuntu 26.04 Arm64" hosted runners.
 self-hosted-runner:
   labels:
+    - ubuntu-26.04
     - ubuntu-26.04-arm
