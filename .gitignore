@@ -5,6 +5,7 @@
 
 # Opencode.
 .opencode/
+opencode.jsonc
 
 # Nix build output
 /result
@@ -12,3 +13,6 @@
 
 # Agent/session transcripts (contain local paths and session data)
 /contexts/*
+
+# Env files
+.env
