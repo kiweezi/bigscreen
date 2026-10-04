@@ -98,5 +98,39 @@
           ];
         };
       };
+
+      checks = nixpkgs.lib.genAttrs [ "x86_64-linux" ] (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          rpi4Deploy = self.nixosConfigurations.bigscreen-rpi4-deploy.config;
+          vboxDeploy = self.nixosConfigurations.bigscreen-vbox-deploy.config;
+          rpi4Boot = self.nixosConfigurations.bigscreen-rpi4-bootstrap.config;
+          mainRemote = builtins.head rpi4Boot.services.comin.remotes;
+          check = name: cond:
+            pkgs.runCommand "check-${name}" { } (
+              if cond then
+                "touch $out"
+              else
+                "echo 'bigscreen check failed: ${name}' >&2; exit 1"
+            );
+        in
+        {
+          rpi4-deploy-comin = check "rpi4-deploy-comin" (
+            rpi4Deploy.services.comin.enable
+            && rpi4Deploy.services.comin.hostname == "bigscreen-rpi4-deploy"
+          );
+          vbox-deploy-comin = check "vbox-deploy-comin" (
+            vboxDeploy.services.comin.enable
+            && vboxDeploy.services.comin.hostname == "bigscreen-vbox-deploy"
+          );
+          bootstrap-branch-policy = check "bootstrap-branch-policy" (
+            mainRemote.branches.main.name == "comin/deploy"
+            && mainRemote.branches.testing.name == ""
+          );
+          bootstrap-no-ssh = check "bootstrap-no-ssh" (!rpi4Boot.services.openssh.enable);
+          pideploy-profile-bootstrap = check "pideploy-profile-bootstrap" (
+            rpi4Deploy.bigscreen.profile == "bootstrap"
+          );
+        });
     };
 }
