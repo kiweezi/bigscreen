@@ -5,6 +5,10 @@
       "type": "local",
       "command": ["npx", "-y", "terrarium-mcp", "mcp"],
       "enabled": true
+    },
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/"
     }
   },
   "provider": {
@@ -24,7 +28,7 @@
           "options": {
             "plugins": [{
               "id": "context-compression",
-              "allowed_models": [
+              "allowedModels": [
                 "qwen/qwen3.8-27b:free",
                 "qwen/qwen3.7-flash:floor",
                 "~z-ai/glm-flash-latest:floor",
