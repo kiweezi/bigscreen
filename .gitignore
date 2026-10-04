@@ -3,10 +3,12 @@
 /isos/*.img
 /isos/*.img.zst
 
+# Opencode.
+.opencode/
+
 # Nix build output
 /result
 /result-*
 
 # Agent/session transcripts (contain local paths and session data)
-/bigscreen-context.json
-/copilot-chat.json
+/contexts/*
