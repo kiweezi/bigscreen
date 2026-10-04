@@ -18,6 +18,101 @@ Both share the same desktop/software configuration
 modules ([hosts/hardware-rpi4.nix](./hosts/hardware-rpi4.nix) and
 [hosts/hardware-vbox.nix](./hosts/hardware-vbox.nix)) differ.
 
+## Deploying with Comin (GitOps)
+
+The preferred way to run these machines is *pull-mode GitOps*: flash a minimal
+"bootstrap" image once, and let [Comin](https://github.com/nlewo/comin) pull the
+machine's real configuration from this repository's **`comin/deploy`** branch and
+apply it. The desktop software is never baked into the bootstrap image, so new
+bootstrap images stay small and application changes ship as ordinary commits.
+
+### Outputs
+
+| Output | Purpose |
+|--------|---------|
+| `bigscreen-rpi4-bootstrap` | Minimal Pi 4 SD-card image (bootstrapping only) |
+| `bigscreen-vbox-bootstrap` | Minimal VirtualBox appliance (bootstrapping only) |
+| `bigscreen-rpi4-deploy` | The Pi configuration Comin evaluates and deploys |
+| `bigscreen-vbox-deploy` | The VirtualBox configuration Comin evaluates and deploys |
+
+[hosts/deployment-selection.nix](./hosts/deployment-selection.nix) maps each
+target to a profile (`bootstrap` or `full`); it is the only place promotion is
+expressed. Comin always evaluates `bigscreen-<target>-deploy`, never an
+image-builder output.
+
+### Build and flash a bootstrap image
+
+```sh
+nix build .#nixosConfigurations.bigscreen-rpi4-bootstrap.config.system.build.sdImage
+# -> result/sd-image/*.img.zst
+```
+
+Flash it with Raspberry Pi Imager ("Use custom image") or manually:
+
+```sh
+zstd -d result/sd-image/*.img.zst -o bigscreen-rpi4-bootstrap.img
+# then flash bigscreen-rpi4-bootstrap.img with your tool of choice
+```
+
+### Publish a release by tag
+
+Push a semantic-version tag such as `v1.2.3`. The
+[release workflow](./.github/workflows/release-rpi4-bootstrap.yml) builds the Pi
+bootstrap image on an ARM64 runner and attaches
+`bigscreen-rpi4-bootstrap-v1.2.3.img.zst` plus a `.sha256` to a GitHub release
+for that tag. Tags build **images** only — see the lifecycle section below.
+
+### First boot and recovery
+
+- Connect **Ethernet**; the bootstrap image uses DHCP through NetworkManager.
+- The public bootstrap image deliberately enables **no SSH and stores no
+  credentials**. Use an HDMI/keyboard (Pi) or the VM console for local access.
+- Once online, Comin starts automatically, fetches `comin/deploy`, evaluates the
+  matching `bigscreen-<target>-deploy` output, builds it and runs
+  `switch-to-configuration switch`.
+- If the network, GitHub, the branch or an output is unavailable, the machine
+  keeps running its current (last good) system and Comin retries.
+
+### Promoting a machine to the full desktop
+
+Edit [hosts/deployment-selection.nix](./hosts/deployment-selection.nix), commit,
+and push the commit to `comin/deploy`:
+
+```sh
+# set e.g. vbox = "full"; then
+git commit -am "Select full Bigscreen profile for the VirtualBox target"
+git push origin HEAD:comin/deploy
+```
+
+Within the poll interval (60s) the machine builds and activates the new profile.
+Keep `comin/deploy` linear: never force-push or reset it behind the commit a
+machine has already deployed (Comin rejects that). To undo a deployment, push a
+new reverting commit.
+
+### Observing and troubleshooting
+
+```sh
+comin status                 # current selection and deployment state
+journalctl -u comin -n 50    # fetch/eval/build/deploy log
+cat /var/lib/comin/state.json
+readlink -f /run/current-system
+```
+
+`switch-to-configuration switch` updates userspace and the boot entry but does
+**not** change the running kernel; reboot when a deployed change requires it.
+Because a machine always follows the moving `comin/deploy` branch, a freshly
+flashed image converges to whatever that branch currently selects, not
+necessarily to the bootstrap state it was flashed with.
+
+> **Trust boundary:** `comin/deploy` is read without credentials, but anything
+> merged into it is deployed to these machines and can administer them. Protect
+> the branch accordingly.
+
+### Manual (non-GitOps) use
+
+The pre-existing `bigscreen-rpi4`, `bigscreen-vbox` and `bigscreen-iso` outputs
+remain available for direct `nixos-rebuild` / manual image builds.
+
 ## What you get
 
 - **KDE Plasma Bigscreen** (`kdePackages.plasma-bigscreen`), auto-starting
