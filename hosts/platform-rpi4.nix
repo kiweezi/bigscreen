@@ -10,7 +10,12 @@
   boot.loader.generic-extlinux-compatible.enable = true;
   boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
 
-  boot.kernelPackages = pkgs.linuxPackages_rpi4;
+  # Mainline kernel: the nixos-hardware raspberry-pi-4 module selects a custom
+  # vendor kernel with `lib.mkDefault`, so this overrides it. Mainline is in the
+  # aarch64 binary cache (the vendor kernel is not), which makes the bootstrap
+  # image build fast. Pi-specific hardware that needs vendor drivers may be
+  # affected; this is an intentional trade-off.
+  boot.kernelPackages = pkgs.linuxPackages;
 
   # The Raspberry Pi vendor kernel does not provide every module in nixpkgs'
   # large default initrd module list (e.g. dw-hdmi is not built on this board).
