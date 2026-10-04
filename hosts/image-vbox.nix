@@ -15,10 +15,15 @@
   virtualisation.diskSize = 32768;
 
   virtualbox.memorySize = 4096;
+  # Note: 3D acceleration is intentionally not set here. `VBoxManage modifyvm`
+  # applies parameters alphabetically, so `accelerate3d` is applied before
+  # `graphicscontroller` and the packaging build fails with
+  # "graphics controller does not support the given feature". Enable 3D
+  # acceleration per host after importing the appliance (the desktop profile
+  # needs VMSVGA + 3D to start a Wayland session).
   virtualbox.params = {
     cpus = 2;
     vram = 128;
     graphicscontroller = "vmsvga";
-    accelerate3d = "on";
   };
 }
