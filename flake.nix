@@ -1,5 +1,5 @@
 {
-  description = "Plasma Bigscreen TV interface - Raspberry Pi 4 and VirtualBox test configurations";
+  description = "Plasma Bigscreen TV interface - Raspberry Pi 4 and VirtualBox GitOps deployments";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -10,9 +10,65 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixos-hardware, ... }:
+  outputs = { self, nixpkgs, nixos-hardware, comin, ... }:
+    let
+      # Which deployment profile each managed device follows. This file is the
+      # only place promotion is expressed; push a change here to comin/deploy
+      # and the device picks it up on its next Comin poll.
+      profiles = import ./hosts/deployment-selection.nix;
+
+      # A managed machine: baseline + platform + Comin, with the profile
+      # (bootstrap or full) chosen by hosts/deployment-selection.nix. Comin
+      # always deploys the matching bigscreen-<target>-deploy output, never an
+      # image-builder output.
+      mkManaged = { target, system, platform, extraModules ? [ ] }:
+        let profile = profiles.${target}; in
+        nixpkgs.lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit comin; };
+          modules = [
+            comin.nixosModules.comin
+            ./hosts/base.nix
+            platform
+            ./modules/meta.nix
+            ./hosts/comin.nix
+            (if profile == "full" then ./hosts/profile-desktop.nix else ./hosts/profile-bootstrap.nix)
+            { bigscreen.target = target; bigscreen.profile = profile; }
+          ] ++ extraModules;
+        };
+    in
     {
       nixosConfigurations = {
+        # --- Managed GitOps devices ----------------------------------------
+        # Minimal images used only to bootstrap a device. They stay minimal
+        # regardless of the deployment selection, so a tag never ships the
+        # desktop closure.
+        bigscreen-rpi4-bootstrap = mkManaged {
+          target = "rpi4";
+          system = "aarch64-linux";
+          platform = ./hosts/platform-rpi4.nix;
+          extraModules = [ nixos-hardware.nixosModules.raspberry-pi-4 ./hosts/image-rpi4.nix ];
+        };
+        bigscreen-rpi4-deploy = mkManaged {
+          target = "rpi4";
+          system = "aarch64-linux";
+          platform = ./hosts/platform-rpi4.nix;
+          extraModules = [ nixos-hardware.nixosModules.raspberry-pi-4 ];
+        };
+        bigscreen-vbox-bootstrap = mkManaged {
+          target = "vbox";
+          system = "x86_64-linux";
+          platform = ./hosts/platform-vbox.nix;
+          extraModules = [ ./hosts/image-vbox.nix ./hosts/ci-vm-access.nix ];
+        };
+        bigscreen-vbox-deploy = mkManaged {
+          target = "vbox";
+          system = "x86_64-linux";
+          platform = ./hosts/platform-vbox.nix;
+          extraModules = [ ./hosts/ci-vm-access.nix ];
+        };
+
+        # --- Pre-existing outputs (kept working unchanged) -----------------
         # Real hardware target: Raspberry Pi 4 Model B (aarch64), booted from SD card.
         bigscreen-rpi4 = nixpkgs.lib.nixosSystem {
           system = "aarch64-linux";
@@ -23,11 +79,8 @@
           ];
         };
 
-        # Test target: Oracle VirtualBox VM (x86_64). Install NixOS from the
-        # normal NixOS ISO inside the VM, then point it at this flake
-        # (`nixos-rebuild switch --flake .#bigscreen-vbox`) instead of the
-        # generated hardware-configuration.nix. See hosts/hardware-vbox.nix
-        # for recommended VM settings and partition labels.
+        # Test target: Oracle VirtualBox VM (x86_64). See hosts/hardware-vbox.nix
+        # for the expected partition labels and VM settings.
         bigscreen-vbox = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
@@ -36,9 +89,7 @@
           ];
         };
 
-        # Bootable live ISO of the Bigscreen system (x86_64) - boots the
-        # graphical session straight from the image. Build with:
-        #   nix build .#nixosConfigurations.bigscreen-iso.config.system.build.isoImage
+        # Bootable live ISO of the Bigscreen system (x86_64).
         bigscreen-iso = nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
