@@ -1,0 +1,42 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "mcp-virtualbox": {
+      "type": "local",
+      "command": ["npx", "-y", "terrarium-mcp", "mcp"],
+      "enabled": true
+    }
+  },
+  "provider": {
+    "openrouter": {
+      "models": {
+        "openrouter/auto": {
+          "options": {
+            "plugins": [{ "id": "context-compression", "costTier": "low" }]
+          }
+        },
+        "openrouter/free": {
+          "options": {
+            "plugins": [{ "id": "context-compression" }]
+          }
+        },
+        "typesafe/jev-router": {
+          "options": {
+            "plugins": [{
+              "id": "context-compression",
+              "allowed_models": [
+                "qwen/qwen3.8-27b:free",
+                "qwen/qwen3.7-flash:floor",
+                "~z-ai/glm-flash-latest:floor",
+                "~deepseek/deepseek-v4-flash-latest:floor",
+                "xiaomi/mimo-v2.6-flash:floor",
+                "qwen/qwen3-coder-next:floor",
+                "qwen/qwen3.8-flash:floor"
+              ]
+            }]
+          }
+        },
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# Built images and installers (large binaries - never commit these)
+/isos/*.iso
+/isos/*.img
+/isos/*.img.zst
+
+# Nix build output
+/result
+/result-*
+
+# Agent/session transcripts (contain local paths and session data)
+/bigscreen-context.json
+/copilot-chat.json

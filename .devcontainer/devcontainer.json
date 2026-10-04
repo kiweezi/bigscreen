@@ -1,0 +1,52 @@
+// For format details, see https://aka.ms/devcontainer.json.
+{
+	"name": "main",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/base:bookworm",
+
+	"features": {
+		"ghcr.io/devcontainers/features/nix:1": {
+			// Enable the usual experimental features for nix, which should definately be enabled by default.
+			// extra-platforms lets the local daemon accept aarch64-linux build jobs, which we can
+			// then actually execute via the qemu binfmt handler registered by postCreateCommand below.
+			"extraNixConfig": "experimental-features = nix-command flakes\nwarn-dirty = false\nextra-platforms = aarch64-linux\n"
+		},
+		"ghcr.io/devcontainers/features/node:2": {},
+		"ghcr.io/devcontainers/features/copilot-cli:1": {},
+		"ghcr.io/guiyomh/features/just:0": {},
+		"ghcr.io/devcontainers/features/powershell:2.0.1": {},
+		"ghcr.io/stuartleeks/dev-container-features/shell-history:0": {}
+	},
+
+	"customizations": {
+		"vscode": {
+			"settings": {
+				// Helps with some annoying warnings in vscode-icons.
+				"workbench.iconTheme": "vscode-icons",
+				"vsicons.dontShowNewVersionMessage": true
+			},
+			"extensions": [
+				"nefrob.vscode-just-syntax",
+				"vscode-icons-team.vscode-icons",
+				"jnoortheen.nix-ide"
+			]
+		}
+	},
+
+	// Use host network for the container.
+	// --privileged is required so postCreateCommand can register the qemu-aarch64
+	// binfmt_misc handler in the kernel, letting aarch64-linux Nix builds run here.
+	"runArgs": ["--network=host", "--privileged"],
+	// // Mount USB drives into the container.
+	// "mounts": [
+	// 	"source=/dev/sdf,target=/dev/bus/usb,type=bind"
+	// ],
+
+	// Install qemu-user-static and register binfmt handlers for aarch64 emulation,
+	// so `nix build .#nixosConfigurations.bigscreen-rpi4...` works in this container.
+	"postCreateCommand": "sudo apt-get update && sudo apt-get install -y qemu-user-static binfmt-support && sudo update-binfmts --enable qemu-aarch64 && sudo sh -c 'grep -q \"^extra-platforms = .*aarch64-linux\" /etc/nix/nix.conf || printf \"\\nextra-platforms = aarch64-linux\\n\" >> /etc/nix/nix.conf'",
+	"postStartCommand": "sudo pkill nix-daemon || true; sudo /usr/local/share/nix-entrypoint.sh true"
+
+	// // Install fonts before the first use of the container.
+	// "onCreateCommand": {}
+}
