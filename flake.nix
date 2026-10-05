@@ -17,12 +17,12 @@
       # and the device picks it up on its next Comin poll.
       profiles = import ./hosts/deployment-selection.nix;
 
-      # A managed machine: baseline + platform + Comin, with the profile
-      # (bootstrap or full) chosen by hosts/deployment-selection.nix. Comin
-      # always deploys the matching bigscreen-<target>-deploy output, never an
-      # image-builder output.
-      mkManaged = { target, system, platform, extraModules ? [ ] }:
-        let profile = profiles.${target}; in
+      # A managed machine: baseline + platform + Comin. The deployment profile
+      # is chosen by hosts/deployment-selection.nix for the *-deploy outputs;
+      # the *-bootstrap image outputs force "bootstrap" so a tag never ships the
+      # desktop closure. Comin always deploys the matching
+      # bigscreen-<target>-deploy output, never an image-builder output.
+      mkManaged = { target, system, platform, profile ? profiles.${target}, extraModules ? [ ] }:
         nixpkgs.lib.nixosSystem {
           inherit system;
           specialArgs = { inherit comin; };
@@ -47,6 +47,7 @@
           target = "rpi4";
           system = "aarch64-linux";
           platform = ./hosts/platform-rpi4.nix;
+          profile = "bootstrap";
           extraModules = [ nixos-hardware.nixosModules.raspberry-pi-4 ./hosts/image-rpi4.nix ];
         };
         bigscreen-rpi4-deploy = mkManaged {
@@ -59,6 +60,7 @@
           target = "vbox";
           system = "x86_64-linux";
           platform = ./hosts/platform-vbox.nix;
+          profile = "bootstrap";
           extraModules = [ ./hosts/image-vbox.nix ];
         };
         bigscreen-vbox-deploy = mkManaged {
