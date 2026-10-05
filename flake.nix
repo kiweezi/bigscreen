@@ -105,6 +105,7 @@
           rpi4Deploy = self.nixosConfigurations.bigscreen-rpi4-deploy.config;
           vboxDeploy = self.nixosConfigurations.bigscreen-vbox-deploy.config;
           rpi4Boot = self.nixosConfigurations.bigscreen-rpi4-bootstrap.config;
+          vboxBoot = self.nixosConfigurations.bigscreen-vbox-bootstrap.config;
           mainRemote = builtins.head rpi4Boot.services.comin.remotes;
           check = name: cond:
             pkgs.runCommand "check-${name}" { } (
@@ -127,7 +128,17 @@
             mainRemote.branches.main.name == "comin/deploy"
             && mainRemote.branches.testing.name == ""
           );
-          bootstrap-no-ssh = check "bootstrap-no-ssh" (!rpi4Boot.services.openssh.enable);
+          bootstrap-no-ssh = check "bootstrap-no-ssh" (
+            !rpi4Boot.services.openssh.enable && !vboxBoot.services.openssh.enable
+          );
+          vbox-bootstrap-minimal = check "vbox-bootstrap-minimal" (
+            vboxBoot.bigscreen.profile == "bootstrap"
+            && !(vboxBoot.services.xserver.enable or false)
+            && !(vboxBoot.services.displayManager.enable or false)
+          );
+          legacy-outputs-ssh = check "legacy-outputs-ssh" (
+            rpi4Deploy.services.openssh.enable && vboxDeploy.services.openssh.enable
+          );
           pideploy-profile-bootstrap = check "pideploy-profile-bootstrap" (
             rpi4Deploy.bigscreen.profile == "bootstrap"
           );

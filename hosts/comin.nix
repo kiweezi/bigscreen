@@ -26,5 +26,7 @@
     # The first full deployment builds the whole desktop closure on the device.
     buildTimeout = 7200;
     debug = false;
+    # Bind the Prometheus exporter to loopback; the firewall port stays closed.
+    exporter.listen_address = "127.0.0.1";
   };
 }
