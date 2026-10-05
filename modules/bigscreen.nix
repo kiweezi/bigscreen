@@ -14,12 +14,18 @@
       kdePackages = prev.kdePackages // {
         plasma-bigscreen = prev.kdePackages.plasma-bigscreen.overrideAttrs (old: {
           buildInputs = (old.buildInputs or [ ]) ++ [ prev.kdePackages.kdeconnect-kde ];
-          # Make the TV remote's Return button escape fullscreen apps: a quick
-          # press injects Esc into the focused app as before (in-app back),
-          # a long press emits the shell's "home action" instead, which
-          # minimizes the app and shows the home overlay. Without this, apps
-          # that ignore Esc (Bigscreen settings, Discover) trap a
-          # remote-only user. See ./plasma-bigscreen-return-button.patch.
+          # Two inputhandler fixes, see ./plasma-bigscreen-return-button.patch:
+          #  - Make the TV remote's Return button escape fullscreen apps: a
+          #    quick press injects Esc into the focused app as before (in-app
+          #    back), a long press emits the shell's "home action" instead,
+          #    which minimizes the app and shows the home overlay. Without it,
+          #    apps that ignore Esc (Bigscreen settings, Discover) trap a
+          #    remote-only user.
+          #  - Retry setting up the XDG remote-desktop portal input session:
+          #    at session start the input handler usually wins the race
+          #    against xdg-desktop-portal, and upstream never retries, so no
+          #    injected key (navigation, Enter, short Return) works for the
+          #    whole session.
           patches = (old.patches or [ ]) ++ [ ./plasma-bigscreen-return-button.patch ];
           # Replace the stock launcher with an organised one (Media / Games /
           # Utilities / Other sections + hidden apps). See the QML's header.

@@ -15,6 +15,55 @@ index e7a9940..083e064 100644
              root.activateHome();
          }
  
+diff --git a/inputhandler/controllermanager.cpp b/inputhandler/controllermanager.cpp
+index df8f792..d3d183f 100644
+--- a/inputhandler/controllermanager.cpp
++++ b/inputhandler/controllermanager.cpp
+@@ -8,6 +8,8 @@
+ #include "inputhandlersettings.h"
+ #include "xdgremotedesktopsystem.h"
+ 
++#include <QTimer>
++
+ ControllerManager::ControllerManager(QObject *parent)
+     : QObject(parent)
+ {
+@@ -218,12 +220,23 @@ void ControllerManager::resetInputSystem()
+     std::unique_ptr<XdgRemoteDesktopSystem> inputSystem(new XdgRemoteDesktopSystem);
+     if (inputSystem->init()) {
+         m_inputSystem.reset(inputSystem.release());
++        m_inputSystemInitRetries = 0;
+         return;
+     }
+ 
+     // No input system available
+     m_inputSystem.reset();
+     qWarning() << "Could not setup input system, plasma-bigscreen-inputhandler will not be able to send events";
++
++    // The input handler is started as part of the session, usually before
++    // xdg-desktop-portal (and the KDE portal backend) have registered on the
++    // bus. Without a retry the handler would never be able to inject any keys
++    // for the whole session (only its D-Bus based actions would still work).
++    // Retry until the portal shows up, giving up after roughly five minutes
++    // so a permanently broken portal does not retry forever.
++    if (m_inputSystemInitRetries++ < 150) {
++        QTimer::singleShot(2000, this, &ControllerManager::resetInputSystem);
++    }
+ }
+ 
+ bool ControllerManager::enabled() const
+diff --git a/inputhandler/controllermanager.h b/inputhandler/controllermanager.h
+index 3710ad0..62c815c 100644
+--- a/inputhandler/controllermanager.h
++++ b/inputhandler/controllermanager.h
+@@ -84,6 +84,7 @@ private:
+     QSet<QString> m_startButtonDisabledWhenSuppressedControllers;
+     QVector<Device *> m_connectedDevices;
+     QScopedPointer<XdgRemoteDesktopSystem> m_inputSystem;
++    int m_inputSystemInitRetries = 0;
+ 
+     QHash<Device *, QSet<int>> m_pressedKeys;
+     QHash<Device *, QSet<int>> m_pressedPointerButtons;
 diff --git a/inputhandler/libcec/ceccontroller.cpp b/inputhandler/libcec/ceccontroller.cpp
 index 4a221cb..4ed5ae0 100644
 --- a/inputhandler/libcec/ceccontroller.cpp
