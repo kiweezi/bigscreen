@@ -1,9 +1,17 @@
-name: release-bootstrap-images
+name: release-and-deploy-bootstrap-images
 
-# Triggered by semantic-version tags such as v1.2.3. The workflow builds the
-# minimal Raspberry Pi 4 bootstrap SD image (ARM64 runner) and the VirtualBox
-# bootstrap appliance (x86_64 runner) in parallel, then attaches both to a
-# GitHub release for the tag.
+# Triggered by semantic-version tags such as v1.2.3. This is the release path
+# of this repo's trunk-based development: a tag marks a release cut from main,
+# and the workflow
+#   1. builds the minimal Raspberry Pi 4 bootstrap SD image (ARM64 runner) and
+#      the VirtualBox bootstrap appliance (x86_64 runner) in parallel,
+#   2. attaches both to a GitHub release for the tag, then
+#   3. fast-forwards the comin/deploy branch to the tagged commit, so every
+#      Comin-managed device deploys the release on its next poll.
+# comin exists because devices follow a *branch*; this deploy job is what keeps
+# that branch identical to the tagged release.
+# The push is fast-forward-only (never forced): Comin rejects a comin/deploy
+# that is reset behind a commit a device has already deployed.
 on:
   push:
     tags: ['v*']
@@ -109,3 +117,37 @@ jobs:
             --generate-notes \
           || gh release upload "${GITHUB_REF_NAME}" assets/* \
             --repo "${GITHUB_REPOSITORY}" --clobber
+
+  deploy:
+    # Only deploy once the release itself succeeded: the bootstrap image builds
+    # act as the gate, so a trunk whose image assembly is broken is not
+    # deployed to devices either.
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the fast-forward check below compares the tag against
+          # the tip of comin/deploy and needs their merge base.
+          fetch-depth: 0
+          # The workflow token is what pushes comin/deploy below.
+          persist-credentials: true
+      - name: Fast-forward comin/deploy to the tagged commit
+        run: |
+          TAG_COMMIT="$(git rev-parse HEAD)"
+          if git ls-remote --exit-code --heads origin comin/deploy >/dev/null; then
+            git fetch --no-tags origin +refs/heads/comin/deploy:refs/remotes/origin/comin/deploy
+            if ! git merge-base --is-ancestor origin/comin/deploy "$TAG_COMMIT"; then
+              echo "::error::comin/deploy ($(git rev-parse --short origin/comin/deploy)) is not an ancestor of $GITHUB_REF_NAME ($(git rev-parse --short "$TAG_COMMIT"))" >&2
+              echo "A deployment must fast-forward comin/deploy: Comin rejects a branch that is reset or rewritten behind a deployed commit." >&2
+              echo "Reconcile main and comin/deploy (fast-forward main to include comin/deploy, or re-tag a descendant commit), then push the tag again." >&2
+              exit 1
+            fi
+          fi
+          # Non-forced: the server rejects this push if comin/deploy moved
+          # between the check above and now, so no deployed commit is lost.
+          git push origin "$TAG_COMMIT:refs/heads/comin/deploy"
+          echo "comin/deploy fast-forwarded to $(git rev-parse --short "$TAG_COMMIT"); devices deploy it on their next poll (60s)."

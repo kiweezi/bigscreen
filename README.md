@@ -26,34 +26,56 @@ machine's real configuration from this repository's **`comin/deploy`** branch an
 apply it. The desktop software is never baked into the bootstrap image, so new
 bootstrap images stay small and application changes ship as ordinary commits.
 
+The repo follows **trunk-based development**: work lands on `main` through
+short-lived feature branches, and a tag cuts a release from `main`. The oddity
+is `comin/deploy` — it only exists because Comin follows a *branch*, not a tag.
+CI maintains it: the release workflow fast-forwards it to whatever commit a tag
+points at, so devices only ever see released commits.
+
+Practically:
+
+- **Every change gets its own branch**, cut from `origin/main`
+  (`git checkout -b my-feature origin/main`) — never develop on `main` itself.
+  Short-lived branches are what make developing several features in parallel
+  possible; `main` is the integration point, not anyone's working branch.
+- **Land the branch back into `main`** when it is ready (a pull request, or a
+  fast-forward merge) and delete it. Unfinished work stays on its branch —
+  long-lived divergent branches are exactly the failure mode this avoids.
+- **Tag `main` to release**: the workflow publishes the bootstrap images and
+  fast-forwards `comin/deploy` to the tagged commit.
+
 ### The lifecycle
 
 ```mermaid
 flowchart LR
-  A[Flash minimal<br/>bootstrap image] --> B[Device boots<br/>Ethernet DHCP<br/>Comin enabled]
+  M[Land changes on main<br/>the trunk] --> T[Publish tag v1.2.3]
+  T --> G[Release workflow<br/>builds bootstrap images<br/>+ GitHub release]
+  G --> H[GitHub release<br/>bootstrap image]
+  H --> A[Flash minimal<br/>bootstrap image]
+  A --> B[Device boots<br/>Ethernet DHCP<br/>Comin enabled]
   B --> C[Comin polls<br/>comin/deploy]
   C --> D[Evaluate bigscreen-&lt;target&gt;-deploy<br/>build + switch]
-  E[Push to comin/deploy<br/>e.g. promote a target to full] --> C
-  F[Publish tag v1.2.3] --> G[ARM64 workflow<br/>builds SD image]
-  G --> H[GitHub release<br/>bootstrap image]
-  H --> A
+  G --> E[Fast-forward comin/deploy<br/>to the tagged commit]
+  E --> C
 ```
 
 Three things can move a machine or produce an artifact:
 
 | Ref | Role | Effect on a device |
 |-----|------|--------------------|
-| `main` | Integration branch: review and land changes here | None by itself — nothing polls `main` |
-| `comin/deploy` | The branch devices follow | Every commit is pulled, evaluated and deployed |
-| `v*` tags | Point-in-time bootstrap images | None — a tag builds a **new bootstrap image**, it does not change `comin/deploy` |
+| `main` | Trunk: review and land changes here | None by itself — nothing polls `main` |
+| `v*` tags | Mark a release cut from the trunk | The release workflow builds bootstrap images **and fast-forwards `comin/deploy` to the tagged commit — every device deploys it** |
+| `comin/deploy` | Release branch, maintained by CI, fast-forward-only | Every commit is pulled, evaluated and deployed |
 
-So a tagged release and a deployment are deliberately separate: **provisioning
-a new device** uses a tag's bootstrap image, while **updating a running device**
-is an ordinary commit pushed to `comin/deploy`.
+So releasing and deploying are one act: **tag `main`** and the workflow publishes
+the release images and moves every device to the tagged commit. `comin/deploy`
+is not hand-edited except for an urgent hotfix; a hotfix push must still be a
+fast-forward, and must be reconciled into `main` so the next tag is a descendant
+of it.
 
-> **Planned future step (not implemented):** automating a tag so it also updates
-> `comin/deploy` (for example pinning a version constant there) would make a tag
-> directly trigger a deployment. Today that link is manual.
+> **Why fast-forward only:** Comin deploys a moving branch and rejects a
+> `comin/deploy` that is reset or rewritten behind a commit a device has already
+> deployed, so the workflow's deploy step enforces exactly that.
 
 ### Outputs
 
@@ -83,7 +105,7 @@ zstd -d result/sd-image/*.img.zst -o bigscreen-rpi4-bootstrap.img
 # then flash bigscreen-rpi4-bootstrap.img with your tool of choice
 ```
 
-### Publish a release by tag
+### Publish a release (and deploy it) by tag
 
 Push a semantic-version tag such as `v1.2.3`. The
 [release workflow](./.github/workflows/release-rpi4-bootstrap.yml) builds both
@@ -92,7 +114,11 @@ bootstrap images in parallel and attaches them to a GitHub release for that tag:
 - `bigscreen-rpi4-bootstrap-v1.2.3.img.zst` (built on an ARM64 runner) plus `.sha256`;
 - `bigscreen-vbox-bootstrap-v1.2.3.ova` (built on an x86_64 runner) plus `.sha256`.
 
-Tags build **images** only — see the lifecycle section below.
+Once the release is published, the workflow **fast-forwards `comin/deploy` to
+the tagged commit**, so devices deploy the release on their next poll. The tag
+must be a descendant of `comin/deploy` (i.e. cut from a `main` that already
+contains it); otherwise the deploy step fails with guidance instead of rewriting
+the branch. Only tags matching `v<major>.<minor>.<patch>` are accepted.
 
 ### First boot and recovery
 
@@ -112,18 +138,21 @@ Tags build **images** only — see the lifecycle section below.
 
 ### Promoting a machine to the full desktop
 
-Edit [hosts/deployment-selection.nix](./hosts/deployment-selection.nix), commit,
-and push the commit to `comin/deploy`:
+Edit [hosts/deployment-selection.nix](./hosts/deployment-selection.nix) on
+`main`, then release it:
 
 ```sh
-# set e.g. vbox = "full"; then
+# on main: set e.g. vbox = "full"; then
 git commit -am "Select full Bigscreen profile for the VirtualBox target"
-git push origin HEAD:comin/deploy
+git tag v1.3.0 && git push origin main v1.3.0
 ```
 
-Within the poll interval (60s) the machine builds and activates the new profile.
-Keep `comin/deploy` linear: never force-push or reset it behind the commit a
-machine has already deployed (Comin rejects that).
+The workflow publishes the release and fast-forwards `comin/deploy` to the tag;
+within the poll interval (60s) the machine builds and activates the new profile.
+A direct push to `comin/deploy` remains possible for an urgent hotfix, but it
+must be a fast-forward (never force-push or reset it behind a commit a machine
+has already deployed) and must be merged back into `main` so the next tag is a
+descendant of it.
 
 **Rolling back.** Comin deploys a *store path* and remembers the ones it has
 already switched to. A revert that reproduces a store path already in the
@@ -153,8 +182,10 @@ service (`sudo systemctl restart comin`) to re-arm its poller; this was observed
 during testing. `comin status` shows the last fetch and deployment times.
 
 > **Trust boundary:** `comin/deploy` is read without credentials, but anything
-> merged into it is deployed to these machines and can administer them. Protect
-> the branch accordingly.
+> merged into it is deployed to these machines and can administer them. It is
+> normally written only by the release workflow's `GITHUB_TOKEN`; consider
+> protecting the branch so direct pushes are limited to that (plus reviewed
+> hotfixes). Protect the branch accordingly.
 
 ### Manual (non-GitOps) use
 
