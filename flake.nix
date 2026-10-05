@@ -106,6 +106,8 @@
           vboxDeploy = self.nixosConfigurations.bigscreen-vbox-deploy.config;
           rpi4Boot = self.nixosConfigurations.bigscreen-rpi4-bootstrap.config;
           vboxBoot = self.nixosConfigurations.bigscreen-vbox-bootstrap.config;
+          legacyRpi4 = self.nixosConfigurations.bigscreen-rpi4.config;
+          legacyVbox = self.nixosConfigurations.bigscreen-vbox.config;
           mainRemote = builtins.head rpi4Boot.services.comin.remotes;
           check = name: cond:
             pkgs.runCommand "check-${name}" { } (
@@ -137,7 +139,7 @@
             && !(vboxBoot.services.displayManager.enable or false)
           );
           legacy-outputs-ssh = check "legacy-outputs-ssh" (
-            rpi4Deploy.services.openssh.enable && vboxDeploy.services.openssh.enable
+            legacyRpi4.services.openssh.enable && legacyVbox.services.openssh.enable
           );
           pideploy-profile-bootstrap = check "pideploy-profile-bootstrap" (
             rpi4Deploy.bigscreen.profile == "bootstrap"
