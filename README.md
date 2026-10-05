@@ -97,8 +97,13 @@ Tags build **images** only — see the lifecycle section below.
 ### First boot and recovery
 
 - Connect **Ethernet**; the bootstrap image uses DHCP through NetworkManager.
-- The public bootstrap image deliberately enables **no SSH and stores no
-  credentials**. Use an HDMI/keyboard (Pi) or the VM console for local access.
+- **SSH is enabled key-only** in every configuration (bootstrap and full): see
+  [hosts/ssh.nix](./hosts/ssh.nix) and the committed public key
+  [hosts/bigscreen.pub](./hosts/bigscreen.pub). Password and root login are
+  disabled, so only someone holding the matching private key can log in as
+  `htpc`. Its private key is **not** in the repository. This also lets you reach
+  a machine whose display is not working. HDMI/keyboard access still works for
+  local recovery.
 - Once online, Comin starts automatically, fetches `comin/deploy`, evaluates the
   matching `bigscreen-<target>-deploy` output, builds it and runs
   `switch-to-configuration switch`.
@@ -169,11 +174,13 @@ remain available for direct `nixos-rebuild` / manual image builds.
 - PipeWire audio, KDE Connect (for phone-as-remote control), and a
   `htpc` user with autologin enabled.
 
-The default account is `htpc` with **no password** (passwordless login and
-`sudo`); `root` likewise has no password. This machine is intended to be
-offline/private, so no credentials are stored in this repository. If you need
-remote shell access, add public keys via `openssh.authorizedKeys.keys` rather
-than setting a password.
+The default account is `htpc` with **no password** (passwordless local login and
+`sudo`); `root` likewise has no password. Remote SSH is **key-only** — password
+and root login are disabled and the machine trusts the public key in
+[hosts/bigscreen.pub](./hosts/bigscreen.pub) (its private key is not in the
+repository). To add another key, drop a `.pub` in `hosts/` and add it to
+`users.users.htpc.openssh.authorizedKeys.keyFiles` in
+[hosts/ssh.nix](./hosts/ssh.nix).
 
 ## Applications
 

@@ -130,8 +130,8 @@
             mainRemote.branches.main.name == "comin/deploy"
             && mainRemote.branches.testing.name == ""
           );
-          bootstrap-no-ssh = check "bootstrap-no-ssh" (
-            !rpi4Boot.services.openssh.enable && !vboxBoot.services.openssh.enable
+          bootstrap-ssh = check "bootstrap-ssh" (
+            rpi4Boot.services.openssh.enable && vboxBoot.services.openssh.enable
           );
           vbox-bootstrap-minimal = check "vbox-bootstrap-minimal" (
             vboxBoot.bigscreen.profile == "bootstrap"

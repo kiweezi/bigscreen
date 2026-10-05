@@ -4,6 +4,8 @@
 { lib, pkgs, ... }:
 
 {
+  imports = [ ./ssh.nix ];
+
   # --- Basics -----------------------------------------------------------
   time.timeZone = "Europe/Oslo";
   i18n.defaultLocale = "en_US.UTF-8";
@@ -41,9 +43,8 @@
 
   security.sudo.wheelNeedsPassword = false;
 
-  # SSH is intentionally not enabled here: public bootstrap images expose no
-  # remote login. Add openssh.authorizedKeys.keys to htpc if a deployment
-  # ever needs it, and enable services.openssh in that profile.
+  # SSH is provided by hosts/ssh.nix (imported above): key-only, with the
+  # committed public key, for administration and headless-boot debugging.
 
   environment.systemPackages = with pkgs; [
     vim
