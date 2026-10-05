@@ -12,4 +12,6 @@
   };
 
   users.users.htpc.openssh.authorizedKeys.keyFiles = [ ./ci-vm-access.pub ];
+
+  environment.etc."bigscreen-vm-marker".text = "marker-2";
 }
