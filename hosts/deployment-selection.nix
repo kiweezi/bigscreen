@@ -4,5 +4,5 @@
 # configuration is intentionally promoted.
 {
   rpi4 = "bootstrap";
-  vbox = "bootstrap";
+  vbox = "full";
 }
