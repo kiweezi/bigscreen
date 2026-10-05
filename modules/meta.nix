@@ -14,25 +14,10 @@
       type = lib.types.enum [ "bootstrap" "full" ];
       description = "Deployment profile selected by the comin/deploy branch.";
     };
-    allowTestSsh = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = ''
-        Temporary permission for the VM test-access module to enable SSH on a
-        bootstrap machine. Never set on a public image.
-      '';
-    };
   };
 
   config = {
     assertions = [
-      {
-        assertion =
-          config.bigscreen.profile != "bootstrap"
-          || config.bigscreen.allowTestSsh
-          || !(config.services.openssh.enable or false);
-        message = "bigscreen: bootstrap machines must not enable SSH without bigscreen.allowTestSsh.";
-      }
       {
         assertion =
           !(config.services.comin.enable or false)
