@@ -118,8 +118,15 @@ git push origin HEAD:comin/deploy
 
 Within the poll interval (60s) the machine builds and activates the new profile.
 Keep `comin/deploy` linear: never force-push or reset it behind the commit a
-machine has already deployed (Comin rejects that). To undo a deployment, push a
-new reverting commit.
+machine has already deployed (Comin rejects that).
+
+**Rolling back.** Comin deploys a *store path* and remembers the ones it has
+already switched to. A revert that reproduces a store path already in the
+deployment history is **skipped**, so the device keeps the newer generation —
+a pure `git revert` can therefore fail to roll back. To roll a device back,
+land a change that produces a *new* store path (e.g. add any real change to the
+reverted config), or roll back on the host itself. This was observed directly
+during testing.
 
 ### Observing and troubleshooting
 
@@ -135,6 +142,10 @@ readlink -f /run/current-system
 Because a machine always follows the moving `comin/deploy` branch, a freshly
 flashed image converges to whatever that branch currently selects, not
 necessarily to the bootstrap state it was flashed with.
+
+If Comin stops picking up commits after a reboot or clock jump, restart the
+service (`sudo systemctl restart comin`) to re-arm its poller; this was observed
+during testing. `comin status` shows the last fetch and deployment times.
 
 > **Trust boundary:** `comin/deploy` is read without credentials, but anything
 > merged into it is deployed to these machines and can administer them. Protect
