@@ -59,13 +59,13 @@
           target = "vbox";
           system = "x86_64-linux";
           platform = ./hosts/platform-vbox.nix;
-          extraModules = [ ./hosts/image-vbox.nix ./hosts/ci-vm-access.nix ];
+          extraModules = [ ./hosts/image-vbox.nix ];
         };
         bigscreen-vbox-deploy = mkManaged {
           target = "vbox";
           system = "x86_64-linux";
           platform = ./hosts/platform-vbox.nix;
-          extraModules = [ ./hosts/ci-vm-access.nix ];
+          extraModules = [ ];
         };
 
         # --- Pre-existing outputs (kept working unchanged) -----------------
