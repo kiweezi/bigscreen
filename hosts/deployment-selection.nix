@@ -3,6 +3,6 @@
 # comin/deploy branch to deploy it. The Pi row stays "bootstrap" until its
 # configuration is intentionally promoted.
 {
-  rpi4 = "bootstrap";
+  rpi4 = "full";
   vbox = "full";
 }
