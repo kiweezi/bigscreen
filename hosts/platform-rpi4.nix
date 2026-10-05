@@ -17,6 +17,15 @@
   # affected; this is an intentional trade-off.
   boot.kernelPackages = pkgs.linuxPackages;
 
+  # nixos-hardware stages the Raspberry Pi firmware partition itself, and only
+  # chainloads U-Boot (which then reads extlinux.conf from the root partition)
+  # when this is enabled. With it off, the firmware partition has no bootable
+  # kernel and the Pi stops at the firmware splash with a black screen. Enable
+  # it so the SD image is actually bootable, and keep the running system's
+  # firmware partition in sync across deploys.
+  hardware.raspberry-pi.firmware.enable = true;
+  hardware.raspberry-pi.firmware.uboot.enable = true;
+
   # The Raspberry Pi vendor kernel does not provide every module in nixpkgs'
   # large default initrd module list (e.g. dw-hdmi is not built on this board).
   # Without this the image build fails in the module-shrinking step with
