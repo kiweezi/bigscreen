@@ -26,6 +26,12 @@
   hardware.raspberry-pi.firmware.enable = true;
   hardware.raspberry-pi.firmware.uboot.enable = true;
 
+  # Load the kernel's own device tree (via extlinux FDT) instead of the vendor
+  # firmware DTB. The mainline kernel must be paired with its matching DTB;
+  # otherwise vc4/HDMI fails to probe (endless "vc4_hdmi ... PCM component
+  # -517" loop) and there is no DRM connector, so the desktop renders nowhere.
+  boot.loader.generic-extlinux-compatible.useGenerationDeviceTree = lib.mkForce true;
+
   # The Raspberry Pi vendor kernel does not provide every module in nixpkgs'
   # large default initrd module list (e.g. dw-hdmi is not built on this board).
   # Without this the image build fails in the module-shrinking step with
