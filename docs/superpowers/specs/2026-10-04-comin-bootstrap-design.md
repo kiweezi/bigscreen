@@ -171,6 +171,25 @@ Update the existing README rather than creating additional operational documents
 - Reworking desktop applications, Flatpak behavior, or existing graphical quirks.
 - Claiming that VirtualBox validation proves Pi firmware, kernel, GPU, or physical boot correctness.
 
+## Post-implementation amendments (approved during execution)
+
+These decisions were made with the user after this spec was approved and
+supersede the earlier text where it conflicts:
+
+- Tag builds were explicitly authorized and are now the intended path. Releases
+  `v0.1.0` and `v0.1.1` were published with both the Pi SD image and the
+  VirtualBox appliance; the "not authorized in this session" boundaries above no
+  longer apply.
+- The Raspberry Pi configuration uses the **mainline kernel**
+  (`pkgs.linuxPackages`) rather than the vendor `linuxPackages_rpi4`, because the
+  vendor kernel is not in any binary cache and takes hours to build. The user
+  accepted the Pi-specific-hardware trade-off and will test physical boot.
+- The release workflow builds the x86_64 VirtualBox appliance in a **parallel**
+  job (so it is not ARM-only), and uses `gh release create --generate-notes`.
+- Review fixes: the full/desktop outputs keep the historical OpenSSH service
+  while bootstrap images stay SSH-free; the Comin exporter binds to loopback; the
+  release step is rerun-safe.
+
 ## Approval checkpoint
 
 Review this specification before implementation planning. After approval, prepare the implementation plan, including precise checks and the VM transport/build procedure, then ask the user to select its execution method. No implementation, branch publication, or release build has been performed at this stage.
