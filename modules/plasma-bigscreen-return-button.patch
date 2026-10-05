@@ -1,0 +1,75 @@
+diff --git a/containments/homescreen/package/contents/ui/main.qml b/containments/homescreen/package/contents/ui/main.qml
+index e7a9940..083e064 100644
+--- a/containments/homescreen/package/contents/ui/main.qml
++++ b/containments/homescreen/package/contents/ui/main.qml
+@@ -98,6 +98,12 @@ ContainmentItem {
+         target: ControllerHandler.ControllerHandlerStatus
+ 
+         function onHomeActionRequested() {
++            // A home action arriving while an application window has focus
++            // (e.g. the long-pressed Return button of a TV remote) should
++            // actually take the user home: minimize the active app windows
++            // so that dismissing the overlay afterwards leaves the user on
++            // the home screen instead of re-focusing the trapped app.
++            tasksModel.minimizeAllTasks();
+             root.activateHome();
+         }
+ 
+diff --git a/inputhandler/libcec/ceccontroller.cpp b/inputhandler/libcec/ceccontroller.cpp
+index 4a221cb..4ed5ae0 100644
+--- a/inputhandler/libcec/ceccontroller.cpp
++++ b/inputhandler/libcec/ceccontroller.cpp
+@@ -337,6 +337,38 @@ void CECController::onCecKeyPressed(int keycode, int duration)
+         return;
+     }
+ 
++    // TVs (e.g. Samsung) send their "Return" button as
++    // CEC_USER_CONTROL_CODE_EXIT, some remotes send AN_RETURN; both map to
++    // Esc. A plain Esc injection only helps apps that handle Esc themselves:
++    // the Bigscreen shell and media apps back out fine, but fullscreen apps
++    // like the Bigscreen settings or Discover ignore it and trap the user,
++    // since nothing else closes the focused window. libcec reports the hold
++    // duration on key release, so treat a quick press as before (inject the
++    // mapped key into the focused app) and a long press (>= 600 ms) as a
++    // "go home" request, which the shell receives over D-Bus and handles
++    // regardless of keyboard focus.
++    if (keycode == CEC_USER_CONTROL_CODE_EXIT || keycode == CEC_USER_CONTROL_CODE_AN_RETURN) {
++        if (duration == 0) {
++            m_pendingBackPress = true;
++            return;
++        }
++        m_pendingBackPress = false;
++        int nativeKey = m_keyMap.value(keycode, -1);
++        if (nativeKey < 0) {
++            qDebug() << "CECController: No mapping found for CEC keycode" << keycode;
++            return;
++        }
++        if (nativeKey == KEY_HOMEPAGE || duration >= 600) {
++            qDebug() << "CECController: Back release (duration" << duration << "), emitting home action";
++            ControllerManager::instance().emitHomeAction(m_device);
++            return;
++        }
++        qDebug() << "CECController: Short back press (duration" << duration << "), injecting native key" << nativeKey;
++        ControllerManager::instance().emitKey(m_device, nativeKey, 1);
++        ControllerManager::instance().emitKey(m_device, nativeKey, 0);
++        return;
++    }
++
+     if (duration > 0 && m_lastHandledKeycode == keycode) {
+         m_lastHandledKeycode = -1;
+         return;
+diff --git a/inputhandler/libcec/ceccontroller.h b/inputhandler/libcec/ceccontroller.h
+index ec08e9f..3e0fd3d 100644
+--- a/inputhandler/libcec/ceccontroller.h
++++ b/inputhandler/libcec/ceccontroller.h
+@@ -77,6 +77,10 @@ private:
+     int m_lastHandledKeycode = -1;
+     bool m_initialized = false;
+     bool m_catchNextInput = false;
++    // Set while the Return/Exit key is held down; cleared on release. See
++    // onCecKeyPressed(): the press is held back until the release reports
++    // the hold duration.
++    bool m_pendingBackPress = false;
+ };
+ 
+ Q_DECLARE_METATYPE(CEC::cec_logical_address);
