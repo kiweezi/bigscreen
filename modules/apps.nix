@@ -65,9 +65,16 @@
     };
     script = ''
       ${pkgs.flatpak}/bin/flatpak remote-add --if-not-exists --system flathub \
-        https://flathub.org/repo/flathub.flatpakrepo
-      ${pkgs.flatpak}/bin/flatpak install --system --noninteractive --assumeyes \
-        flathub com.stremio.Stremio dev.fredol.open-tv app.zen_browser.zen com.valvesoftware.SteamLink
+        https://flathub.org/repo/flathub.flatpakrepo || true
+      # Install each app on its own so a Flathub app that does not exist for
+      # this architecture (e.g. Steam Link / Zen Browser on aarch64) is skipped
+      # instead of failing the whole service - a failing oneshot here would also
+      # make switch-to-configuration (and therefore a Comin deployment) fail.
+      for app in com.stremio.Stremio dev.fredol.open-tv app.zen_browser.zen com.valvesoftware.SteamLink; do
+        if ! ${pkgs.flatpak}/bin/flatpak install --system --noninteractive --assumeyes flathub "$app"; then
+          echo "flatpak: $app is not available for this architecture, skipping" >&2
+        fi
+      done
     '';
   };
 
