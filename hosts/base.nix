@@ -25,6 +25,15 @@
   # GitOps deployments evaluate this flake on the machine itself.
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
+  # Binary cache holding the Raspberry Pi vendor kernel and Comin — the two
+  # store paths Hydra/cache.nixos.org do not provide for aarch64. Everything
+  # else substitutes from cache.nixos.org, so devices and dev VMs download the
+  # kernel instead of building it for hours. This is public config: only
+  # pushing needs a token, and that lives in CI (CACHIX_AUTH_TOKEN secret).
+  nix.settings.extra-substituters = [ "https://kiweezi-rpi-bigscreen.cachix.org" ];
+  nix.settings.extra-trusted-public-keys =
+    [ "kiweezi-rpi-bigscreen.cachix.org-1:4l+G9VDeEh8CdNG0+OqeUgXvNpkwwQ8m7ReBHm0aPwQ=" ];
+
   # --- User account -------------------------------------------------------
   # No passwords anywhere: this machine is not exposed to the public internet
   # and stores nothing sensitive. An empty hashed password ("") is a

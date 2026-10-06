@@ -143,8 +143,8 @@
           legacy-outputs-ssh = check "legacy-outputs-ssh" (
             legacyRpi4.services.openssh.enable && legacyVbox.services.openssh.enable
           );
-          pideploy-profile-bootstrap = check "pideploy-profile-bootstrap" (
-            rpi4Deploy.bigscreen.profile == "bootstrap"
+          pideploy-profile-full = check "pideploy-profile-full" (
+            rpi4Deploy.bigscreen.profile == "full"
           );
         });
     };

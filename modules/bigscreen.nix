@@ -121,6 +121,18 @@
     pkgs.kdePackages.milou
   ];
 
+  # Run Electron (VacuumTube) on KWin's native Wayland backend instead of
+  # XWayland: vacuum-tube's wrapper switches to ozone/wayland when this is set,
+  # removing the XWayland compositing hop.
+  #
+  # Note on video decode: upstream Electron cannot use the Pi's stateful V4L2
+  # decoder (`bcm2835-codec`) - no Chromium flag enables it, because upstream
+  # Chromium/Electron lack the Raspberry Pi OS decoder patches. So VacuumTube
+  # decodes YouTube in software regardless. The kernel's bcm2835-codec still
+  # accelerates mpv/Kodi/Jellyfin. See hosts/platform-rpi4.nix for why the vendor
+  # kernel (which provides that decoder) is used.
+  environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
   # org.kde.plasma.private.batterymonitor (used by the Bigscreen HomeScreen's
   # PowerManagementItem) queries UPower over D-Bus; without the daemon it logs
   # "UPowerManager::allDevices ... ServiceUnknown".
