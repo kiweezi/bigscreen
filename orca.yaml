@@ -1,0 +1,11 @@
+scripts:
+  # Generate each agent's files from .rulesync/ before the agent starts.
+  setup: |
+    rulesync generate
+setupAgentStartupPolicy: wait-for-setup
+defaultTabs:
+  # The first tab is taken by the agent when the worktree is created with one.
+  - title: Agent
+  # Regenerate whenever a file under .rulesync/ or rulesync.jsonc changes.
+  - title: rulesync
+    command: rulesync generate --watch

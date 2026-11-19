@@ -1,0 +1,3 @@
+# Gitignored skills with local network details (see rulesync.jsonc), copied
+# into each new Orca worktree.
+.rulesync.local

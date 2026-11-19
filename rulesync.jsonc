@@ -1,0 +1,18 @@
+// Agent skills for this repository. Sources live in .rulesync/ (committed)
+// and .rulesync.local/ (gitignored: skills with details of the local network
+// that stay out of this public repository). `rulesync generate` writes each
+// agent's files, which are gitignored; Orca runs it when it creates a
+// worktree (orca.yaml). OpenCode providers and MCP servers stay in
+// opencode.jsonc.
+{
+  "$schema": "https://github.com/dyoshikawa/rulesync/releases/download/v43.9.2/config-schema.json",
+  "inputRoots": ["./.rulesync", "./.rulesync.local"],
+  // Skills go to .agents/skills for every agent that reads it, and to
+  // .claude/skills only for Claude Code, which does not.
+  "targets": {
+    "claudecode": ["skills"],
+    "antigravity-cli": ["skills"],
+    "agentsskills": ["skills"],
+  },
+  "delete": true,
+}
